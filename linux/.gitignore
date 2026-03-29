@@ -1,0 +1,38 @@
+# Flutter / Dart
+.build/
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+build/
+
+# Android
+android/.gradle/
+android/app/build/
+
+# iOS
+ios/Pods/
+ios/Runner.xcworkspace/
+
+# macOS
+macos/Pods/
+
+# Windows
+windows/flutter/ephemeral/
+
+# Linux
+linux/flutter/ephemeral/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Env (IMPORTANT)
+.env
+.env.*
+
+# Misc
+*.lock

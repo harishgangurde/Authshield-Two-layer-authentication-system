@@ -1,0 +1,441 @@
+// lib/features/settings/settings_screen.dart
+
+import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/constants/app_constants.dart';
+import '../../../app.dart';
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _pushAlerts = true;
+  bool _ownerActivity = false;
+  bool _systemUpdates = true;
+  bool _darkMode = true;
+  String _alarmRingtone = 'Default Security';
+  String _criticalAlertTone = 'Loud Alert';
+  String _deviceId = AppConstants.defaultDeviceId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _pushAlerts = prefs.getBool(AppConstants.keyPushAlerts) ?? true;
+      _ownerActivity = prefs.getBool(AppConstants.keyOwnerActivity) ?? false;
+      _systemUpdates = prefs.getBool(AppConstants.keySystemUpdates) ?? true;
+      _darkMode = prefs.getBool(AppConstants.keyThemeMode) ?? true;
+      _alarmRingtone =
+          prefs.getString(AppConstants.keyAlarmRingtone) ?? 'Default Security';
+      _criticalAlertTone =
+          prefs.getString(AppConstants.keyCriticalAlertTone) ?? 'Loud Alert';
+      _deviceId =
+          prefs.getString(AppConstants.keyDeviceId) ??
+          AppConstants.defaultDeviceId;
+    });
+  }
+
+  Future<void> _savePref(String key, dynamic value) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (value is bool) await prefs.setBool(key, value);
+    if (value is String) await prefs.setString(key, value);
+  }
+
+  Future<void> _selectRingtone(bool isCritical) async {
+    final options = isCritical
+        ? ['Loud Alert', 'Siren', 'Alarm Bell', 'Emergency Buzz']
+        : ['Default Security', 'Soft Beep', 'Pulse', 'Chime'];
+
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isCritical ? 'Critical Alert Tone' : 'Alarm Ringtone',
+              style: GoogleFonts.spaceGrotesk(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...options.map(
+              (o) => ListTile(
+                title: Text(
+                  o,
+                  style: GoogleFonts.spaceGrotesk(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                trailing:
+                    (isCritical ? _criticalAlertTone : _alarmRingtone) == o
+                    ? Icon(
+                        Icons.check,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    : null,
+                onTap: () => Navigator.pop(context, o),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (selected != null && mounted) {
+      setState(() {
+        if (isCritical)
+          _criticalAlertTone = selected;
+        else
+          _alarmRingtone = selected;
+      });
+      _savePref(
+        isCritical
+            ? AppConstants.keyCriticalAlertTone
+            : AppConstants.keyAlarmRingtone,
+        selected,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark
+        ? AppColors.textPrimary
+        : AppColors.lightTextPrimary;
+    final subColor = isDark
+        ? AppColors.textSecondary
+        : AppColors.lightTextSecondary;
+    final cardColor = isDark ? AppColors.bgCard : AppColors.lightCard;
+    final bgColor = isDark ? AppColors.bgDark : AppColors.lightBg;
+
+    return Scaffold(
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        backgroundColor: isDark ? AppColors.bgDark : AppColors.lightCard,
+        elevation: 0,
+        title: Row(
+          children: [
+            Icon(Icons.shield, color: AppColors.primary, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'App Settings',
+              style: GoogleFonts.spaceGrotesk(
+                color: textColor,
+                fontWeight: FontWeight.w600,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.notifications_outlined, color: textColor),
+            onPressed: () => Navigator.of(context).pushNamed('/alerts'),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+        children: [
+          // ── ALARMS ────────────────────────────────────────────────
+          _sectionHeader(
+            '🔔',
+            'ALARMS',
+            subColor,
+          ).animate().fadeIn(delay: 100.ms),
+          _settingsTile(
+            title: 'Alarm ringtone selection',
+            subtitle: _alarmRingtone,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            trailing: Icon(Icons.chevron_right, color: subColor, size: 18),
+            onTap: () => _selectRingtone(false),
+          ).animate().fadeIn(delay: 150.ms),
+          _settingsTile(
+            title: 'Critical Alert Tone',
+            subtitle: _criticalAlertTone,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            trailing: Icon(Icons.chevron_right, color: subColor, size: 18),
+            onTap: () => _selectRingtone(true),
+          ).animate().fadeIn(delay: 200.ms),
+          const SizedBox(height: 24),
+
+          // ── NOTIFICATIONS ─────────────────────────────────────────
+          _sectionHeader(
+            '📡',
+            'NOTIFICATIONS',
+            subColor,
+          ).animate().fadeIn(delay: 250.ms),
+          _switchTile(
+            title: 'Push Alerts',
+            subtitle: 'Instant mobile push notifications',
+            value: _pushAlerts,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            onChanged: (v) {
+              setState(() => _pushAlerts = v);
+              _savePref(AppConstants.keyPushAlerts, v);
+            },
+          ).animate().fadeIn(delay: 300.ms),
+          _switchTile(
+            title: 'Owner Activity',
+            subtitle: 'Updates when sub-users login',
+            value: _ownerActivity,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            onChanged: (v) {
+              setState(() => _ownerActivity = v);
+              _savePref(AppConstants.keyOwnerActivity, v);
+            },
+          ).animate().fadeIn(delay: 350.ms),
+          _switchTile(
+            title: 'System Updates',
+            subtitle: 'Critical kernel and firmware news',
+            value: _systemUpdates,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            onChanged: (v) {
+              setState(() => _systemUpdates = v);
+              _savePref(AppConstants.keySystemUpdates, v);
+            },
+          ).animate().fadeIn(delay: 400.ms),
+          const SizedBox(height: 24),
+
+          // ── DEVICE INFORMATION ────────────────────────────────────
+          _sectionHeader(
+            '🖥️',
+            'DEVICE INFORMATION',
+            subColor,
+          ).animate().fadeIn(delay: 450.ms),
+          _settingsTile(
+            title: 'Device ID',
+            subtitle: _deviceId,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            trailing: IconButton(
+              icon: Icon(Icons.info_outline, color: subColor, size: 18),
+              onPressed: () => _showDeviceInfo(textColor, subColor),
+            ),
+          ).animate().fadeIn(delay: 500.ms),
+          const SizedBox(height: 24),
+
+          // ── APPEARANCE ────────────────────────────────────────────
+          _sectionHeader(
+            '🎨',
+            'APPEARANCE',
+            subColor,
+          ).animate().fadeIn(delay: 550.ms),
+          _switchTile(
+            title: 'Dark Mode',
+            subtitle: 'Switch between light and dark themes',
+            value: _darkMode,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            leading: Icon(Icons.dark_mode, color: subColor, size: 22),
+            onChanged: (v) {
+              setState(() => _darkMode = v);
+              // ✅ This actually changes the app theme instantly
+              setAppTheme(v);
+            },
+          ).animate().fadeIn(delay: 600.ms),
+
+          const SizedBox(height: 24),
+
+          // ── APP INFO ─────────────────────────────────────────────
+          _sectionHeader(
+            'ℹ️',
+            'APP INFO',
+            subColor,
+          ).animate().fadeIn(delay: 650.ms),
+          _settingsTile(
+            title: AppConstants.appName,
+            subtitle: 'Version ${AppConstants.appVersion}',
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            trailing: const Icon(
+              Icons.shield,
+              color: AppColors.primary,
+              size: 18,
+            ),
+          ).animate().fadeIn(delay: 700.ms),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String emoji, String title, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 12)),
+          const SizedBox(width: 6),
+          Text(
+            title,
+            style: GoogleFonts.spaceMono(
+              fontSize: 10,
+              color: color,
+              letterSpacing: 2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _settingsTile({
+    required String title,
+    required String subtitle,
+    required Color cardColor,
+    required Color textColor,
+    required Color subColor,
+    Widget? trailing,
+    Widget? leading,
+    VoidCallback? onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        tileColor: cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        leading: leading,
+        title: Text(
+          title,
+          style: GoogleFonts.spaceGrotesk(color: textColor, fontSize: 15),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: GoogleFonts.inter(color: subColor, fontSize: 12),
+        ),
+        trailing: trailing,
+        onTap: onTap,
+      ),
+    );
+  }
+
+  Widget _switchTile({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    required Color cardColor,
+    required Color textColor,
+    required Color subColor,
+    Widget? leading,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 2),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        tileColor: cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        leading: leading,
+        title: Text(
+          title,
+          style: GoogleFonts.spaceGrotesk(color: textColor, fontSize: 15),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: GoogleFonts.inter(color: subColor, fontSize: 12),
+        ),
+        trailing: Switch(
+          value: value,
+          onChanged: onChanged,
+          activeColor: AppColors.primary,
+          activeTrackColor: AppColors.primary.withOpacity(0.3),
+        ),
+      ),
+    );
+  }
+
+  void _showDeviceInfo(Color textColor, Color subColor) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Theme.of(context).cardColor,
+        title: Text(
+          'Device Information',
+          style: GoogleFonts.spaceGrotesk(color: textColor),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _infoRow('Device ID', _deviceId, textColor, subColor),
+            const SizedBox(height: 8),
+            _infoRow(
+              'Protocol',
+              AppConstants.authProtocol,
+              textColor,
+              subColor,
+            ),
+            const SizedBox(height: 8),
+            _infoRow(
+              'App Version',
+              AppConstants.appVersion,
+              textColor,
+              subColor,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Close',
+              style: GoogleFonts.spaceGrotesk(color: AppColors.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(String label, String value, Color textColor, Color subColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.spaceMono(fontSize: 11, color: subColor),
+        ),
+        Text(
+          value,
+          style: GoogleFonts.spaceMono(fontSize: 11, color: textColor),
+        ),
+      ],
+    );
+  }
+}
