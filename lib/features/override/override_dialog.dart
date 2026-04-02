@@ -1,5 +1,3 @@
-// lib/features/override/override_dialog.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -46,24 +44,30 @@ class _OverrideDialogState extends State<OverrideDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.bgCard,
-          borderRadius: BorderRadius.circular(24),
-          border: Border(
-            top: BorderSide(
-              color: AppColors.accentBlue.withOpacity(0.6),
-              width: 2,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: BorderRadius.circular(24),
+            border: Border(
+              top: BorderSide(
+                color: AppColors.accentBlue.withOpacity(0.6),
+                width: 2,
+              ),
+            ),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF1A2235), AppColors.bgCard],
             ),
           ),
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1A2235), AppColors.bgCard],
+          child: SingleChildScrollView(
+            child: _success ? _buildSuccess() : _buildConfirm(),
           ),
-        ),
-        child: _success ? _buildSuccess() : _buildConfirm(),
-      ).animate().slideY(begin: 0.3).fadeIn(),
+        ).animate().slideY(begin: 0.3).fadeIn(),
+      ),
     );
   }
 
@@ -73,7 +77,6 @@ class _OverrideDialogState extends State<OverrideDialog> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Lock icon
           Container(
             width: 64,
             height: 64,
@@ -88,7 +91,6 @@ class _OverrideDialogState extends State<OverrideDialog> {
             ),
           ),
           const SizedBox(height: 20),
-
           Text(
             'Are you sure you want to manually unlock the door?',
             textAlign: TextAlign.center,
@@ -96,12 +98,12 @@ class _OverrideDialogState extends State<OverrideDialog> {
               fontSize: 20,
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary,
+              height: 1.35,
             ),
           ),
           const SizedBox(height: 20),
-
-          // Device info box
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppColors.bgDark,
@@ -110,13 +112,12 @@ class _OverrideDialogState extends State<OverrideDialog> {
             child: Column(
               children: [
                 _infoRow('DEVICE ID', AppConstants.defaultDeviceId),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _infoRow('CURRENT TIMESTAMP', _timestamp),
               ],
             ),
           ),
           const SizedBox(height: 16),
-
           Text(
             'This action will bypass all biometric and MFA protocols. A manual override log will be generated and broadcasted to all security administrators immediately.',
             textAlign: TextAlign.center,
@@ -127,8 +128,6 @@ class _OverrideDialogState extends State<OverrideDialog> {
             ),
           ),
           const SizedBox(height: 24),
-
-          // Confirm button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -160,8 +159,6 @@ class _OverrideDialogState extends State<OverrideDialog> {
             ),
           ),
           const SizedBox(height: 12),
-
-          // Cancel
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
             child: Text(
@@ -172,12 +169,15 @@ class _OverrideDialogState extends State<OverrideDialog> {
               ),
             ),
           ),
-
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            runSpacing: 8,
+            spacing: 8,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: List.generate(
                   3,
                   (i) => Container(
@@ -193,6 +193,7 @@ class _OverrideDialogState extends State<OverrideDialog> {
               ),
               Text(
                 'AUTH PROTOCOL: ${AppConstants.authProtocol}',
+                textAlign: TextAlign.right,
                 style: GoogleFonts.spaceMono(
                   fontSize: 9,
                   color: AppColors.textMuted,
@@ -233,6 +234,7 @@ class _OverrideDialogState extends State<OverrideDialog> {
           const SizedBox(height: 8),
           Text(
             'Override logged and broadcasted',
+            textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 13,
               color: AppColors.textSecondary,
@@ -244,8 +246,8 @@ class _OverrideDialogState extends State<OverrideDialog> {
   }
 
   Widget _infoRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
@@ -255,10 +257,13 @@ class _OverrideDialogState extends State<OverrideDialog> {
             letterSpacing: 1,
           ),
         ),
+        const SizedBox(height: 4),
         Text(
           value,
+          softWrap: true,
+          overflow: TextOverflow.visible,
           style: GoogleFonts.spaceMono(
-            fontSize: 12,
+            fontSize: 13,
             color: AppColors.textPrimary,
           ),
         ),
