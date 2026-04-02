@@ -1,5 +1,3 @@
-// lib/features/alerts/widgets/alert_card.dart
-
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -32,7 +30,6 @@ class AlertCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Camera image
           Stack(
             children: [
               ClipRRect(
@@ -74,13 +71,11 @@ class AlertCard extends StatelessWidget {
               ),
             ],
           ),
-
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Type badge
                 Row(
                   children: [
                     Container(
@@ -103,7 +98,6 @@ class AlertCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-
                 Text(
                   alert.title,
                   style: GoogleFonts.spaceGrotesk(
@@ -112,28 +106,34 @@ class AlertCard extends StatelessWidget {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 6),
-
+                const SizedBox(height: 8),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.access_time,
-                      size: 12,
-                      color: AppColors.textMuted,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${alert.formattedTime}  •  Source: ${alert.deviceId}',
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(
+                        Icons.access_time,
+                        size: 12,
                         color: AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '${alert.formattedTime}\nSource: ${alert.deviceId}',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                          height: 1.4,
+                        ),
+                        softWrap: true,
+                        overflow: TextOverflow.visible,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-
-                // Action menu
                 Row(
                   children: [
                     _menuButton(
