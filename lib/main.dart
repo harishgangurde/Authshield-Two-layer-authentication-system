@@ -7,23 +7,29 @@ import 'core/services/supabase_service.dart';
 import 'core/services/notification_service.dart';
 import 'app.dart';
 
-const String _supabaseUrl = 'https://kvgnjhqkkjginhcjgvcn.supabase.co';
-const String _supabaseAnonKey =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2Z25qaHFra2pnaW5oY2pndmNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMDI3MDUsImV4cCI6MjA4OTc3ODcwNX0.ttg-cj88I5OqQNMCzu937TdREM9yUT0ocWOTnc9Ha_I';
-
 void main() async {
+  // 1. Ensure Flutter bindings are initialized before any async calls
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: ".env");
+  try {
+    // 2. Load environment variables from the .env file
+    await dotenv.load(fileName: ".env");
+    print("✅ .env loaded successfully");
+  } catch (e) {
+    print("❌ Error loading .env file: $e");
+    // Fallback or exit if .env is critical
+  }
 
-  // ✅ Load saved theme before app starts
+  // 3. Load saved theme (assuming this is a global function in your project)
   await loadSavedTheme();
 
+  // 4. Lock orientation to Portrait for security/UI consistency
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
+  // 5. Configure System UI (Status bar & Navigation bar)
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -33,13 +39,17 @@ void main() async {
     ),
   );
 
+  // 6. Initialize Supabase using values from .env
   await SupabaseService.initialize(
-    url: _supabaseUrl,
-    anonKey: _supabaseAnonKey,
+    url: dotenv.get('SUPABASE_URL'),
+    anonKey: dotenv.get('SUPABASE_ANON_KEY'),
   );
 
-  await NotificationService().initialize();
-  await NotificationService().requestPermissionsOnce();
+  // 7. Setup Notifications
+  final notificationService = NotificationService();
+  await notificationService.initialize();
+  await notificationService.requestPermissionsOnce();
 
+  // 8. Launch the App
   runApp(const SentinelApp());
 }

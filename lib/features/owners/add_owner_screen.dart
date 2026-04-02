@@ -1,5 +1,3 @@
-// lib/features/owners/add_owner_screen.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -95,9 +93,10 @@ class _AddOwnerScreenState extends State<AddOwnerScreen> {
     if (source != null) {
       final xFile = await _picker.pickImage(
         source: source,
-        imageQuality: 80,
-        maxWidth: 512,
+        imageQuality: 90,
+        maxWidth: 800,
       );
+
       if (xFile != null && mounted) {
         setState(() => _imageFile = File(xFile.path));
       }
@@ -106,6 +105,20 @@ class _AddOwnerScreenState extends State<AddOwnerScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (!_isEditing && _imageFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.warning,
+          content: Text(
+            'Please add a face image for owner registration',
+            style: GoogleFonts.inter(color: Colors.black),
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() => _saving = true);
 
     try {
@@ -122,6 +135,7 @@ class _AddOwnerScreenState extends State<AddOwnerScreen> {
         role: _roleController.text.trim(),
         imageUrl: imageUrl,
         isActive: true,
+        faceEmbedding: null,
       );
 
       if (_isEditing) {
@@ -130,7 +144,21 @@ class _AddOwnerScreenState extends State<AddOwnerScreen> {
         await _supabase.addOwner(owner);
       }
 
-      if (mounted) Navigator.of(context).pop(true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.primary,
+            content: Text(
+              _isEditing
+                  ? 'Owner updated successfully'
+                  : 'Owner added successfully',
+              style: GoogleFonts.inter(color: Colors.black),
+            ),
+          ),
+        );
+
+        Navigator.of(context).pop(true);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -176,15 +204,14 @@ class _AddOwnerScreenState extends State<AddOwnerScreen> {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            // Avatar picker
             Center(
               child: GestureDetector(
                 onTap: _pickImage,
                 child: Stack(
                   children: [
                     Container(
-                      width: 100,
-                      height: 100,
+                      width: 110,
+                      height: 110,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: AppColors.bgCard,
@@ -195,29 +222,29 @@ class _AddOwnerScreenState extends State<AddOwnerScreen> {
                       ),
                       child: _imageFile != null
                           ? ClipRRect(
-                              borderRadius: BorderRadius.circular(50),
+                              borderRadius: BorderRadius.circular(55),
                               child: Image.file(_imageFile!, fit: BoxFit.cover),
                             )
                           : _existingImageUrl != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(50),
-                              child: Image.network(
-                                _existingImageUrl!,
-                                fit: BoxFit.cover,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.person,
-                              color: AppColors.textMuted,
-                              size: 44,
-                            ),
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(55),
+                                  child: Image.network(
+                                    _existingImageUrl!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.person,
+                                  color: AppColors.textMuted,
+                                  size: 48,
+                                ),
                     ),
                     Positioned(
                       bottom: 0,
                       right: 0,
                       child: Container(
-                        width: 32,
-                        height: 32,
+                        width: 34,
+                        height: 34,
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
                           color: AppColors.primary,
@@ -233,9 +260,17 @@ class _AddOwnerScreenState extends State<AddOwnerScreen> {
                 ),
               ),
             ).animate().fadeIn(delay: 100.ms),
+            const SizedBox(height: 14),
+            Center(
+              child: Text(
+                'Add clear face photo',
+                style: GoogleFonts.inter(
+                  color: AppColors.textMuted,
+                  fontSize: 13,
+                ),
+              ),
+            ).animate().fadeIn(delay: 120.ms),
             const SizedBox(height: 32),
-
-            // Name field
             _buildLabel('FULL NAME'),
             const SizedBox(height: 8),
             TextFormField(
@@ -243,11 +278,9 @@ class _AddOwnerScreenState extends State<AddOwnerScreen> {
               style: GoogleFonts.spaceGrotesk(color: AppColors.textPrimary),
               decoration: _inputDecoration('e.g. Harshada'),
               validator: (v) =>
-                  v == null || v.isEmpty ? 'Name is required' : null,
+                  v == null || v.trim().isEmpty ? 'Name is required' : null,
             ).animate().fadeIn(delay: 200.ms),
             const SizedBox(height: 20),
-
-            // Role field
             _buildLabel('ROLE / CLEARANCE'),
             const SizedBox(height: 8),
             TextFormField(
@@ -255,11 +288,9 @@ class _AddOwnerScreenState extends State<AddOwnerScreen> {
               style: GoogleFonts.spaceGrotesk(color: AppColors.textPrimary),
               decoration: _inputDecoration('e.g. Admin'),
               validator: (v) =>
-                  v == null || v.isEmpty ? 'Role is required' : null,
+                  v == null || v.trim().isEmpty ? 'Role is required' : null,
             ).animate().fadeIn(delay: 300.ms),
             const SizedBox(height: 12),
-
-            // Role presets
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -296,8 +327,6 @@ class _AddOwnerScreenState extends State<AddOwnerScreen> {
               }).toList(),
             ).animate().fadeIn(delay: 350.ms),
             const SizedBox(height: 40),
-
-            // Save button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

@@ -22,7 +22,7 @@ class AppConstants {
   static const String intruderImagesBucket = 'intruder-images';
 
   // ESP32 API
-  static const String esp32BaseUrl = 'http://192.168.1.100';
+  static const String esp32BaseUrl = 'http://10.96.69.168';
   static const String unlockEndpoint = '/unlock';
   static const String statusEndpoint = '/status';
   static const String captureEndpoint = '/capture';

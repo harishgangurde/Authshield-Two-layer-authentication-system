@@ -1,5 +1,3 @@
-// lib/models/owner_model.dart
-
 class OwnerModel {
   final String? id;
   final String name;
@@ -7,7 +5,7 @@ class OwnerModel {
   final String? imageUrl;
   final bool isActive;
   final DateTime? createdAt;
-  final String? faceEmbedding; // stored face data for recognition
+  final String? faceEmbedding;
 
   OwnerModel({
     this.id,
