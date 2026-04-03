@@ -52,9 +52,7 @@ class SupabaseService {
 
   Future<String?> uploadOwnerImage(String ownerId, File imageFile) async {
     final fileName = '$ownerId/profile.jpg';
-    await client.storage
-        .from(AppConstants.ownerImagesBucket)
-        .upload(
+    await client.storage.from(AppConstants.ownerImagesBucket).upload(
           fileName,
           imageFile,
           fileOptions: const FileOptions(upsert: true),
@@ -77,22 +75,19 @@ class SupabaseService {
   Future<void> dismissAlert(String alertId) async {
     await client
         .from(AppConstants.alertsTable)
-        .update({'dismissed': true})
-        .eq('id', alertId);
+        .update({'dismissed': true}).eq('id', alertId);
   }
 
   Future<void> clearAllAlerts() async {
     await client
         .from(AppConstants.alertsTable)
-        .update({'dismissed': true})
-        .eq('dismissed', false);
+        .update({'dismissed': true}).eq('dismissed', false);
   }
 
   Future<void> initiateLockout(String alertId) async {
     await client
         .from(AppConstants.alertsTable)
-        .update({'lockout_initiated': true})
-        .eq('id', alertId);
+        .update({'lockout_initiated': true}).eq('id', alertId);
     await addLog(
       LogModel(
         action: 'Lockout Initiated',
@@ -144,6 +139,21 @@ class SupabaseService {
         .limit(1)
         .maybeSingle();
     return response != null ? LogModel.fromJson(response) : null;
+  }
+
+  // ── DEVICE TOKENS ──────────────────────────────────────────────────────────
+  Future<void> saveDeviceToken(String token) async {
+    try {
+      await client.from('device_tokens').upsert({
+        'device_name': 'Harish Android',
+        'fcm_token': token,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'fcm_token');
+
+      print('✅ FCM token saved to Supabase');
+    } catch (e) {
+      print('❌ Failed to save FCM token: $e');
+    }
   }
 
   // ── REALTIME ───────────────────────────────────────────────────────────────

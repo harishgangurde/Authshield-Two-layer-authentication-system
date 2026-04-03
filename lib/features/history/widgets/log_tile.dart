@@ -1,5 +1,3 @@
-// lib/features/history/widgets/log_tile.dart
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
@@ -20,6 +18,7 @@ class LogTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _statusIcon(),
           const SizedBox(width: 14),
@@ -28,36 +27,44 @@ class LogTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      log.action,
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                    Expanded(
+                      child: Text(
+                        log.action,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     _statusBadge(),
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   '${log.deviceId}  •  ${log.formattedTime}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.spaceMono(
                     fontSize: 10,
                     color: AppColors.textMuted,
                     letterSpacing: 0.5,
                   ),
                 ),
+                const SizedBox(height: 6),
+                Text(
+                  log.formattedDate,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
-            ),
-          ),
-          Text(
-            log.formattedDate,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              color: AppColors.textSecondary,
             ),
           ),
         ],
@@ -89,7 +96,11 @@ class LogTile extends StatelessWidget {
             shape: BoxShape.circle,
             color: AppColors.danger.withOpacity(0.15),
           ),
-          child: const Icon(Icons.cancel, color: AppColors.danger, size: 22),
+          child: const Icon(
+            Icons.cancel,
+            color: AppColors.danger,
+            size: 22,
+          ),
         );
       case LogStatus.manual:
         return Container(

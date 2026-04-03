@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/supabase_service.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/alerts/alerts_screen.dart';
@@ -99,6 +100,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   late int _currentIndex;
+  final SupabaseService _supabaseService = SupabaseService();
 
   @override
   void initState() {
@@ -129,15 +131,26 @@ class _MainShellState extends State<MainShell> {
       print(
           '🔔 Notification permission status: ${settings.authorizationStatus}');
 
-      // 🔥 Get FCM token
+      // 🔥 Get current FCM token
       final token = await messaging.getToken();
       print('🔥 FCM TOKEN: $token');
+
+      if (token != null) {
+        await _supabaseService.saveDeviceToken(token);
+      }
+
+      // 🔄 Save refreshed token automatically
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+        print('🔄 FCM TOKEN REFRESHED: $newToken');
+        await _supabaseService.saveDeviceToken(newToken);
+      });
 
       // 📩 Foreground messages
       FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
         print('📩 Foreground Firebase message received');
-        print('📩 Title: ${message.notification?.title}');
-        print('📩 Body: ${message.notification?.body}');
+        print(
+            '📩 Title: ${message.notification?.title ?? message.data['title']}');
+        print('📩 Body: ${message.notification?.body ?? message.data['body']}');
         print('📩 Data: ${message.data}');
 
         await NotificationService().showFirebaseNotification(message);
@@ -145,14 +158,16 @@ class _MainShellState extends State<MainShell> {
 
       // 👆 App opened from notification tap
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        print('📲 Notification tapped: ${message.notification?.title}');
+        print(
+            '📲 Notification tapped: ${message.notification?.title ?? message.data['title']}');
       });
 
       // 🚀 App launched from terminated state via notification
       final initialMessage = await messaging.getInitialMessage();
       if (initialMessage != null) {
         print('🚀 App opened from terminated notification');
-        print('🚀 Title: ${initialMessage.notification?.title}');
+        print(
+            '🚀 Title: ${initialMessage.notification?.title ?? initialMessage.data['title']}');
       }
     } catch (e) {
       print('❌ FCM init error: $e');

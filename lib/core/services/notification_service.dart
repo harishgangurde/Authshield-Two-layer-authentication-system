@@ -1,5 +1,5 @@
-// lib/core/services/notification_service.dart
-
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -15,9 +15,6 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   final AudioPlayer _audioPlayer = AudioPlayer();
 
-  String _alarmRingtone = 'default_security';
-  String _criticalAlertTone = 'loud_alert';
-
   static const String _permissionKey = 'notification_permission_asked';
 
   Future<void> initialize() async {
@@ -31,13 +28,14 @@ class NotificationService {
 
     await _notifications.initialize(initSettings);
 
-    // ✅ Create notification channel (VERY IMPORTANT for Android)
     const channel = AndroidNotificationChannel(
-      'intrusion_channel',
+      'intrusion_channel_v4',
       'Intrusion Alerts',
-      description: 'Critical security alerts',
+      description: 'Critical security intrusion alerts',
       importance: Importance.max,
       playSound: true,
+      enableVibration: true,
+      sound: RawResourceAndroidNotificationSound('siren'),
     );
 
     await _notifications
@@ -60,20 +58,34 @@ class NotificationService {
     }
   }
 
-  // 🔥 THIS IS THE IMPORTANT NEW FUNCTION
   Future<void> showFirebaseNotification(RemoteMessage message) async {
-    final title = message.notification?.title ?? 'AuthShield Alert';
-    final body = message.notification?.body ?? 'Unknown face detected';
+    final title = message.data['title'] ??
+        message.notification?.title ??
+        'AuthShield Alert';
 
-    const androidDetails = AndroidNotificationDetails(
-      'intrusion_channel',
+    final body = message.data['body'] ??
+        message.notification?.body ??
+        'Unknown face detected';
+
+    final androidDetails = AndroidNotificationDetails(
+      'intrusion_channel_v4',
       'Intrusion Alerts',
+      channelDescription: 'Critical security intrusion alerts',
       importance: Importance.max,
       priority: Priority.high,
       playSound: true,
+      sound: const RawResourceAndroidNotificationSound('siren'),
+      enableVibration: true,
+      vibrationPattern: Int64List.fromList([0, 1000, 500, 1000, 500, 1500]),
+      ticker: 'ticker',
+      category: AndroidNotificationCategory.alarm,
+      visibility: NotificationVisibility.public,
+      fullScreenIntent: true,
+      autoCancel: true,
+      ongoing: false,
     );
 
-    const details = NotificationDetails(android: androidDetails);
+    final details = NotificationDetails(android: androidDetails);
 
     await _notifications.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -82,13 +94,7 @@ class NotificationService {
       details,
     );
 
-    // 🔊 Always play sound for Firebase alert
     await playAlarm(isCritical: true);
-  }
-
-  void setRingtones({String? alarm, String? critical}) {
-    if (alarm != null) _alarmRingtone = alarm;
-    if (critical != null) _criticalAlertTone = critical;
   }
 
   Future<void> showIntrusionAlert({
@@ -96,17 +102,25 @@ class NotificationService {
     required String body,
     bool isCritical = false,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
-      'intrusion_channel',
+    final androidDetails = AndroidNotificationDetails(
+      'intrusion_channel_v4',
       'Intrusion Alerts',
+      channelDescription: 'Critical security intrusion alerts',
       importance: Importance.max,
       priority: Priority.high,
-      color: Color(0xFFEF4444),
-      enableVibration: true,
+      color: const Color(0xFFEF4444),
       playSound: true,
+      sound: const RawResourceAndroidNotificationSound('siren'),
+      enableVibration: true,
+      vibrationPattern: Int64List.fromList([0, 1000, 500, 1000, 500, 1500]),
+      category: AndroidNotificationCategory.alarm,
+      visibility: NotificationVisibility.public,
+      fullScreenIntent: true,
+      autoCancel: true,
+      ongoing: false,
     );
 
-    const details = NotificationDetails(android: androidDetails);
+    final details = NotificationDetails(android: androidDetails);
 
     await _notifications.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -115,7 +129,9 @@ class NotificationService {
       details,
     );
 
-    if (isCritical) await playAlarm(isCritical: true);
+    if (isCritical) {
+      await playAlarm(isCritical: true);
+    }
   }
 
   Future<void> showAccessGranted(String ownerName) async {
@@ -137,8 +153,40 @@ class NotificationService {
 
   Future<void> playAlarm({bool isCritical = false}) async {
     try {
-      final tone = isCritical ? _criticalAlertTone : _alarmRingtone;
-      await _audioPlayer.play(AssetSource('audio/$tone.mp3'));
+      final prefs = await SharedPreferences.getInstance();
+
+      final selectedTone = isCritical
+          ? prefs.getString('critical_alert_tone') ?? 'Loud Alert'
+          : prefs.getString('alarm_ringtone') ?? 'Default Security';
+
+      final selectedPath = isCritical
+          ? prefs.getString('critical_alert_tone_path')
+          : prefs.getString('alarm_ringtone_path');
+
+      await _audioPlayer.stop();
+      await _audioPlayer.setReleaseMode(ReleaseMode.stop);
+      await _audioPlayer.setVolume(1.0);
+
+      if (selectedPath != null &&
+          selectedPath.isNotEmpty &&
+          File(selectedPath).existsSync()) {
+        await _audioPlayer.play(DeviceFileSource(selectedPath));
+        return;
+      }
+
+      final assetMap = {
+        'Default Security': 'audio/default_security.mp3',
+        'Soft Beep': 'audio/soft_beep.mp3',
+        'Pulse': 'audio/pulse.mp3',
+        'Chime': 'audio/chime.mp3',
+        'Loud Alert': 'audio/loud_alert.mp3',
+        'Siren': 'audio/siren.mp3',
+        'Alarm Bell': 'audio/alarm_bell.mp3',
+        'Emergency Buzz': 'audio/emergency_buzz.mp3',
+      };
+
+      final assetPath = assetMap[selectedTone] ?? 'audio/loud_alert.mp3';
+      await _audioPlayer.play(AssetSource(assetPath));
     } catch (e) {
       print('❌ Audio error: $e');
     }

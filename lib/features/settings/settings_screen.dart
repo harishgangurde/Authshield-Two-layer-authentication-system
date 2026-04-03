@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
@@ -32,11 +33,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _criticalAlertTonePath;
 
   final AudioPlayer _audioPlayer = AudioPlayer();
+  final _supabase = Supabase.instance.client;
+
+  bool _isUpdatingPassword = false;
+  String _currentDoorPassword = '••••';
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
+    _loadDoorPassword();
   }
 
   @override
@@ -65,6 +71,233 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _deviceId = prefs.getString(AppConstants.keyDeviceId) ??
           AppConstants.defaultDeviceId;
     });
+  }
+
+  Future<void> _loadDoorPassword() async {
+    try {
+      final response = await _supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'keypad_password')
+          .maybeSingle();
+
+      if (response != null && response['value'] != null) {
+        setState(() {
+          _currentDoorPassword = response['value'].toString();
+        });
+      } else {
+        setState(() {
+          _currentDoorPassword = '1234';
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading keypad password: $e');
+      setState(() {
+        _currentDoorPassword = '1234';
+      });
+    }
+  }
+
+  Future<void> _saveDoorPassword(String newPassword) async {
+    setState(() => _isUpdatingPassword = true);
+
+    try {
+      await _supabase.from('settings').update({
+        'value': newPassword,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('key', 'keypad_password');
+
+      setState(() {
+        _currentDoorPassword = newPassword;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Door password updated successfully',
+              style: GoogleFonts.spaceGrotesk(),
+            ),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error saving keypad password: $e');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to update password',
+              style: GoogleFonts.spaceGrotesk(),
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingPassword = false);
+      }
+    }
+  }
+
+  Future<void> _showChangePasswordDialog() async {
+    final currentController = TextEditingController();
+    final newController = TextEditingController();
+    final confirmController = TextEditingController();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor =
+        isDark ? AppColors.textPrimary : AppColors.lightTextPrimary;
+    final subColor =
+        isDark ? AppColors.textSecondary : AppColors.lightTextSecondary;
+
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Theme.of(context).cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(
+          'Change Door Password',
+          style: GoogleFonts.spaceGrotesk(
+            color: textColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: currentController,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  obscureText: true,
+                  style: GoogleFonts.spaceGrotesk(color: textColor),
+                  decoration: InputDecoration(
+                    labelText: 'Current Password',
+                    labelStyle: GoogleFonts.inter(color: subColor),
+                    counterText: '',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: newController,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  obscureText: true,
+                  style: GoogleFonts.spaceGrotesk(color: textColor),
+                  decoration: InputDecoration(
+                    labelText: 'New Password',
+                    labelStyle: GoogleFonts.inter(color: subColor),
+                    counterText: '',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: confirmController,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  obscureText: true,
+                  style: GoogleFonts.spaceGrotesk(color: textColor),
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    labelStyle: GoogleFonts.inter(color: subColor),
+                    counterText: '',
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed:
+                _isUpdatingPassword ? null : () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.spaceGrotesk(color: subColor),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: _isUpdatingPassword
+                ? null
+                : () async {
+                    final current = currentController.text.trim();
+                    final newPass = newController.text.trim();
+                    final confirm = confirmController.text.trim();
+
+                    if (current != _currentDoorPassword) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Current password is incorrect',
+                            style: GoogleFonts.spaceGrotesk(),
+                          ),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (newPass.length != 4 || int.tryParse(newPass) == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Password must be exactly 4 digits',
+                            style: GoogleFonts.spaceGrotesk(),
+                          ),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (newPass != confirm) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Passwords do not match',
+                            style: GoogleFonts.spaceGrotesk(),
+                          ),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                      return;
+                    }
+
+                    Navigator.pop(context);
+                    await _saveDoorPassword(newPass);
+                  },
+            child: _isUpdatingPassword
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(
+                    'Save',
+                    style: GoogleFonts.spaceGrotesk(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _savePref(String key, dynamic value) async {
@@ -383,6 +616,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: Icon(Icons.chevron_right, color: subColor, size: 18),
             onTap: () => _selectRingtone(true),
           ).animate().fadeIn(delay: 200.ms),
+          const SizedBox(height: 24),
+          _sectionHeader('🔐', 'SECURITY', subColor)
+              .animate()
+              .fadeIn(delay: 225.ms),
+          _settingsTile(
+            title: 'Change Door Password',
+            subtitle: 'Current: $_currentDoorPassword',
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            trailing: _isUpdatingPassword
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(Icons.lock_outline, color: subColor, size: 18),
+            onTap: _showChangePasswordDialog,
+          ).animate().fadeIn(delay: 240.ms),
           const SizedBox(height: 24),
           _sectionHeader('📡', 'NOTIFICATIONS', subColor)
               .animate()
