@@ -39,7 +39,7 @@ class AlertModel {
       deviceId: json['device_id'] ?? 'HUB-01',
       imageUrl: json['image_url'],
       timestamp: json['timestamp'] != null
-          ? DateTime.tryParse(json['timestamp']) ?? DateTime.now()
+          ? (DateTime.tryParse(json['timestamp']) ?? DateTime.now()).toLocal()
           : DateTime.now(),
       dismissed: json['dismissed'] ?? false,
       lockoutInitiated: json['lockout_initiated'] ?? false,
@@ -91,11 +91,23 @@ class AlertModel {
     }
   }
 
+  bool get isCritical {
+    return type == AlertType.unrecognizedSubject ||
+        type == AlertType.failedAuth ||
+        type == AlertType.multipleFailures;
+  }
+
   String get formattedTime {
-    final h = timestamp.hour.toString().padLeft(2, '0');
-    final m = timestamp.minute.toString().padLeft(2, '0');
-    final amPm = timestamp.hour >= 12 ? 'PM' : 'AM';
-    final hour12 = timestamp.hour > 12 ? timestamp.hour - 12 : timestamp.hour;
+    final localTime = timestamp.toLocal();
+
+    final m = localTime.minute.toString().padLeft(2, '0');
+    final amPm = localTime.hour >= 12 ? 'PM' : 'AM';
+    final hour12 = localTime.hour == 0
+        ? 12
+        : localTime.hour > 12
+            ? localTime.hour - 12
+            : localTime.hour;
+
     final months = [
       'Jan',
       'Feb',
@@ -110,6 +122,21 @@ class AlertModel {
       'Nov',
       'Dec',
     ];
-    return 'Alert at $hour12:$m $amPm, ${months[timestamp.month - 1]} ${timestamp.day}th';
+
+    String getDaySuffix(int day) {
+      if (day >= 11 && day <= 13) return 'th';
+      switch (day % 10) {
+        case 1:
+          return 'st';
+        case 2:
+          return 'nd';
+        case 3:
+          return 'rd';
+        default:
+          return 'th';
+      }
+    }
+
+    return 'Alert at $hour12:$m $amPm, ${months[localTime.month - 1]} ${localTime.day}${getDaySuffix(localTime.day)}';
   }
 }

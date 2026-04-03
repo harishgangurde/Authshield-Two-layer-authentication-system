@@ -48,4 +48,6 @@ class AppConstants {
   static const String keyCriticalAlertTone = 'critical_alert_tone';
   static const String keyDeviceId = 'device_id';
   static const String keyOnboardingDone = 'onboarding_done';
+  static const String keyAlarmRingtonePath = 'alarm_ringtone_path';
+  static const String keyCriticalAlertTonePath = 'critical_alert_tone_path';
 }

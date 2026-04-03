@@ -2,8 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
+import 'core/services/notification_service.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/alerts/alerts_screen.dart';
@@ -41,7 +43,6 @@ class SentinelApp extends StatelessWidget {
         return MaterialApp(
           title: AppConstants.appName,
           debugShowCheckedModeBanner: false,
-          // ✅ Both themes defined — switches instantly
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeMode,
@@ -103,6 +104,7 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _currentIndex = widget.index;
+    _initFCM();
   }
 
   final List<Widget> _screens = const [
@@ -112,6 +114,50 @@ class _MainShellState extends State<MainShell> {
     ChatbotScreen(),
     SettingsScreen(),
   ];
+
+  Future<void> _initFCM() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+
+      // 🔐 Ask permission (Android 13+)
+      final settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      print(
+          '🔔 Notification permission status: ${settings.authorizationStatus}');
+
+      // 🔥 Get FCM token
+      final token = await messaging.getToken();
+      print('🔥 FCM TOKEN: $token');
+
+      // 📩 Foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+        print('📩 Foreground Firebase message received');
+        print('📩 Title: ${message.notification?.title}');
+        print('📩 Body: ${message.notification?.body}');
+        print('📩 Data: ${message.data}');
+
+        await NotificationService().showFirebaseNotification(message);
+      });
+
+      // 👆 App opened from notification tap
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        print('📲 Notification tapped: ${message.notification?.title}');
+      });
+
+      // 🚀 App launched from terminated state via notification
+      final initialMessage = await messaging.getInitialMessage();
+      if (initialMessage != null) {
+        print('🚀 App opened from terminated notification');
+        print('🚀 Title: ${initialMessage.notification?.title}');
+      }
+    } catch (e) {
+      print('❌ FCM init error: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -167,8 +213,8 @@ class _MainShellState extends State<MainShell> {
         decoration: BoxDecoration(
           color: isActive
               ? (isDark
-                    ? AppColors.navActive
-                    : AppColors.primary.withOpacity(0.1))
+                  ? AppColors.navActive
+                  : AppColors.primary.withOpacity(0.1))
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),

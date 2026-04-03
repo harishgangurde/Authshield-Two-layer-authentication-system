@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -23,43 +24,66 @@ class NotificationService {
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
-    const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: false, // we handle manually
-      requestBadgePermission: false,
-      requestSoundPermission: false,
-    );
+
     const initSettings = InitializationSettings(
       android: androidSettings,
-      iOS: iosSettings,
     );
+
     await _notifications.initialize(initSettings);
+
+    // ✅ Create notification channel (VERY IMPORTANT for Android)
+    const channel = AndroidNotificationChannel(
+      'intrusion_channel',
+      'Intrusion Alerts',
+      description: 'Critical security alerts',
+      importance: Importance.max,
+      playSound: true,
+    );
+
+    await _notifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
   }
 
-  // ✅ Only asks permission ONCE — never again after first time
   Future<void> requestPermissionsOnce() async {
     final prefs = await SharedPreferences.getInstance();
     final alreadyAsked = prefs.getBool(_permissionKey) ?? false;
 
     if (!alreadyAsked) {
-      await _requestPermissions();
+      await _notifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
+
       await prefs.setBool(_permissionKey, true);
     }
   }
 
-  Future<void> _requestPermissions() async {
-    // Android 13+ notification permission
-    await _notifications
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.requestNotificationsPermission();
+  // 🔥 THIS IS THE IMPORTANT NEW FUNCTION
+  Future<void> showFirebaseNotification(RemoteMessage message) async {
+    final title = message.notification?.title ?? 'AuthShield Alert';
+    final body = message.notification?.body ?? 'Unknown face detected';
 
-    // iOS permission
-    await _notifications
-        .resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin
-        >()
-        ?.requestPermissions(alert: true, badge: true, sound: true);
+    const androidDetails = AndroidNotificationDetails(
+      'intrusion_channel',
+      'Intrusion Alerts',
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+    );
+
+    const details = NotificationDetails(android: androidDetails);
+
+    await _notifications.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title,
+      body,
+      details,
+    );
+
+    // 🔊 Always play sound for Firebase alert
+    await playAlarm(isCritical: true);
   }
 
   void setRingtones({String? alarm, String? critical}) {
@@ -75,22 +99,14 @@ class NotificationService {
     const androidDetails = AndroidNotificationDetails(
       'intrusion_channel',
       'Intrusion Alerts',
-      channelDescription: 'Critical security intrusion notifications',
       importance: Importance.max,
       priority: Priority.high,
       color: Color(0xFFEF4444),
       enableVibration: true,
       playSound: true,
     );
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-    const details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
+
+    const details = NotificationDetails(android: androidDetails);
 
     await _notifications.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -106,11 +122,11 @@ class NotificationService {
     const androidDetails = AndroidNotificationDetails(
       'access_channel',
       'Access Notifications',
-      channelDescription: 'Access granted/denied notifications',
       importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
     );
+
     const details = NotificationDetails(android: androidDetails);
+
     await _notifications.show(
       0,
       'Access Granted',
@@ -123,7 +139,9 @@ class NotificationService {
     try {
       final tone = isCritical ? _criticalAlertTone : _alarmRingtone;
       await _audioPlayer.play(AssetSource('audio/$tone.mp3'));
-    } catch (_) {}
+    } catch (e) {
+      print('❌ Audio error: $e');
+    }
   }
 
   Future<void> stopAlarm() async {

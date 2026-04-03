@@ -1,5 +1,3 @@
-// lib/features/notifications/notification_popup.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/alert_model.dart';
 import '../../core/services/supabase_service.dart';
+import '../../core/services/sound_service.dart';
 
 class NotificationPopup extends StatelessWidget {
   final AlertModel alert;
@@ -22,11 +21,15 @@ class NotificationPopup extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: GestureDetector(
-            onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushNamed('/alerts');
+            onTap: () async {
+              await SoundService().stop();
+              if (context.mounted) {
+                Navigator.of(context).pop();
+                Navigator.of(context).pushNamed('/alerts');
+              }
             },
             child: Container(
+              constraints: const BoxConstraints(maxWidth: 500),
               decoration: BoxDecoration(
                 color: AppColors.bgCard,
                 borderRadius: BorderRadius.circular(20),
@@ -45,7 +48,7 @@ class NotificationPopup extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Critical alert header
+                  // 🔴 HEADER
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -102,6 +105,7 @@ class NotificationPopup extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // 🔥 TITLE
                         Text(
                           'Intrusion Detected at\n${alert.cameraId}',
                           style: GoogleFonts.spaceGrotesk(
@@ -111,6 +115,7 @@ class NotificationPopup extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
+
                         Text(
                           'Unrecognized motion detected in restricted perimeter.',
                           style: GoogleFonts.inter(
@@ -118,9 +123,10 @@ class NotificationPopup extends StatelessWidget {
                             color: AppColors.textSecondary,
                           ),
                         ),
+
                         const SizedBox(height: 12),
 
-                        // Camera feed
+                        // 📷 IMAGE
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: Stack(
@@ -152,7 +158,7 @@ class NotificationPopup extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'REC  00:04:12',
+                                      'REC  LIVE',
                                       style: GoogleFonts.spaceMono(
                                         color: Colors.white,
                                         fontSize: 10,
@@ -161,68 +167,64 @@ class NotificationPopup extends StatelessWidget {
                                   ],
                                 ),
                               ),
-                              Positioned(
-                                bottom: 8,
-                                right: 8,
-                                child: Text(
-                                  '1024x768  |  15FPS',
-                                  style: GoogleFonts.spaceMono(
-                                    color: Colors.white70,
-                                    fontSize: 9,
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                         ),
+
                         const SizedBox(height: 12),
 
-                        // Device & timestamp row
+                        // 📊 INFO ROW (FIXED OVERFLOW)
                         Row(
                           children: [
                             Expanded(
-                              child: _infoBox('DEVICE ID', alert.deviceId),
+                              child: _infoBox(
+                                'DEVICE',
+                                alert.deviceId,
+                              ),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: _infoBox('TIMESTAMP', alert.formattedTime),
+                              child: _infoBox(
+                                'TIME',
+                                alert.formattedTime,
+                              ),
                             ),
                           ],
                         ),
+
                         const SizedBox(height: 16),
 
-                        // Lockout button
+                        // 🔒 LOCKOUT BUTTON
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
                             onPressed: () async {
-                              await SupabaseService().initiateLockout(
-                                alert.id!,
-                              );
-                              if (context.mounted) Navigator.of(context).pop();
+                              await SupabaseService()
+                                  .initiateLockout(alert.id!);
+
+                              await SoundService().stop();
+
+                              if (context.mounted) {
+                                Navigator.of(context).pop();
+                              }
                             },
-                            style:
-                                ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  backgroundColor: Colors.transparent,
-                                  shadowColor: Colors.transparent,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                ).copyWith(
-                                  backgroundColor: WidgetStateProperty.all(
-                                    Colors.transparent,
-                                  ),
-                                  overlayColor: WidgetStateProperty.all(
-                                    AppColors.danger.withOpacity(0.2),
-                                  ),
-                                ),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                              ),
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
                             child: Container(
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFFFF6B6B), AppColors.danger],
+                                  colors: [
+                                    Color(0xFFFF6B6B),
+                                    AppColors.danger,
+                                  ],
                                 ),
                                 borderRadius: BorderRadius.circular(14),
                               ),
@@ -239,14 +241,20 @@ class NotificationPopup extends StatelessWidget {
                             ),
                           ),
                         ),
+
                         const SizedBox(height: 10),
 
-                        // Dismiss & View Logs
+                        // ⚙️ BUTTONS
                         Row(
                           children: [
                             Expanded(
                               child: OutlinedButton(
-                                onPressed: () => Navigator.of(context).pop(),
+                                onPressed: () async {
+                                  await SoundService().stop();
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop();
+                                  }
+                                },
                                 style: OutlinedButton.styleFrom(
                                   side: const BorderSide(
                                     color: AppColors.bgCardLight,
@@ -271,9 +279,12 @@ class NotificationPopup extends StatelessWidget {
                             const SizedBox(width: 10),
                             Expanded(
                               child: OutlinedButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                  Navigator.of(context).pushNamed('/history');
+                                onPressed: () async {
+                                  await SoundService().stop();
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop();
+                                    Navigator.of(context).pushNamed('/history');
+                                  }
                                 },
                                 style: OutlinedButton.styleFrom(
                                   side: const BorderSide(
@@ -299,18 +310,9 @@ class NotificationPopup extends StatelessWidget {
                           ],
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
 
-                        // Nearby sensors
-                        Text(
-                          'NEARBY SENSORS',
-                          style: GoogleFonts.spaceMono(
-                            fontSize: 10,
-                            color: AppColors.textMuted,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
+                        // 🔎 SENSOR INFO
                         _sensorTile('Front Entry Door', 'Secured'),
                       ],
                     ),
@@ -355,6 +357,8 @@ class NotificationPopup extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis, // ✅ FIX OVERFLOW
             style: GoogleFonts.spaceMono(
               fontSize: 13,
               color: AppColors.textPrimary,

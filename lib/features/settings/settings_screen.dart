@@ -1,9 +1,12 @@
-// lib/features/settings/settings_screen.dart
+import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:audioplayers/audioplayers.dart';
+
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../../app.dart';
@@ -20,14 +23,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _ownerActivity = false;
   bool _systemUpdates = true;
   bool _darkMode = true;
+
   String _alarmRingtone = 'Default Security';
   String _criticalAlertTone = 'Loud Alert';
   String _deviceId = AppConstants.defaultDeviceId;
+
+  String? _alarmRingtonePath;
+  String? _criticalAlertTonePath;
+
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSettings() async {
@@ -37,12 +52,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _ownerActivity = prefs.getBool(AppConstants.keyOwnerActivity) ?? false;
       _systemUpdates = prefs.getBool(AppConstants.keySystemUpdates) ?? true;
       _darkMode = prefs.getBool(AppConstants.keyThemeMode) ?? true;
+
       _alarmRingtone =
           prefs.getString(AppConstants.keyAlarmRingtone) ?? 'Default Security';
       _criticalAlertTone =
           prefs.getString(AppConstants.keyCriticalAlertTone) ?? 'Loud Alert';
-      _deviceId =
-          prefs.getString(AppConstants.keyDeviceId) ??
+
+      _alarmRingtonePath = prefs.getString(AppConstants.keyAlarmRingtonePath);
+      _criticalAlertTonePath =
+          prefs.getString(AppConstants.keyCriticalAlertTonePath);
+
+      _deviceId = prefs.getString(AppConstants.keyDeviceId) ??
           AppConstants.defaultDeviceId;
     });
   }
@@ -51,6 +71,93 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     if (value is bool) await prefs.setBool(key, value);
     if (value is String) await prefs.setString(key, value);
+  }
+
+  Future<void> _removePref(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(key);
+  }
+
+  Future<void> _pickCustomTone(bool isCritical) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['mp3', 'wav', 'm4a', 'aac', 'ogg'],
+    );
+
+    if (result != null && result.files.single.path != null) {
+      final path = result.files.single.path!;
+      final fileName = result.files.single.name;
+
+      setState(() {
+        if (isCritical) {
+          _criticalAlertTone = 'Custom Tone';
+          _criticalAlertTonePath = path;
+        } else {
+          _alarmRingtone = 'Custom Tone';
+          _alarmRingtonePath = path;
+        }
+      });
+
+      await _savePref(
+        isCritical
+            ? AppConstants.keyCriticalAlertTone
+            : AppConstants.keyAlarmRingtone,
+        'Custom Tone',
+      );
+
+      await _savePref(
+        isCritical
+            ? AppConstants.keyCriticalAlertTonePath
+            : AppConstants.keyAlarmRingtonePath,
+        path,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Selected: $fileName',
+              style: GoogleFonts.spaceGrotesk(),
+            ),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _previewTone(bool isCritical) async {
+    final path = isCritical ? _criticalAlertTonePath : _alarmRingtonePath;
+
+    if (path == null || path.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'No custom tone selected',
+              style: GoogleFonts.spaceGrotesk(),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      await _audioPlayer.stop();
+      await _audioPlayer.play(DeviceFileSource(path));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not play selected file',
+              style: GoogleFonts.spaceGrotesk(),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _selectRingtone(bool isCritical) async {
@@ -64,69 +171,164 @@ class _SettingsScreenState extends State<SettingsScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isCritical ? 'Critical Alert Tone' : 'Alarm Ringtone',
-              style: GoogleFonts.spaceGrotesk(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...options.map(
-              (o) => ListTile(
-                title: Text(
-                  o,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isCritical ? 'Critical Alert Tone' : 'Alarm Ringtone',
                   style: GoogleFonts.spaceGrotesk(
                     color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
                   ),
                 ),
-                trailing:
-                    (isCritical ? _criticalAlertTone : _alarmRingtone) == o
-                    ? Icon(
-                        Icons.check,
-                        color: Theme.of(context).colorScheme.primary,
-                      )
-                    : null,
-                onTap: () => Navigator.pop(context, o),
-              ),
+                const SizedBox(height: 16),
+                ...options.map(
+                  (o) => ListTile(
+                    title: Text(
+                      o,
+                      style: GoogleFonts.spaceGrotesk(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    trailing:
+                        (isCritical ? _criticalAlertTone : _alarmRingtone) == o
+                            ? Icon(
+                                Icons.check,
+                                color: Theme.of(context).colorScheme.primary,
+                              )
+                            : null,
+                    onTap: () => Navigator.pop(context, o),
+                  ),
+                ),
+                const Divider(height: 24),
+                ListTile(
+                  leading: const Icon(Icons.folder_open),
+                  title: Text(
+                    'Choose from device',
+                    style: GoogleFonts.spaceGrotesk(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Pick MP3 / WAV / M4A file',
+                    style: GoogleFonts.inter(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.7),
+                    ),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _pickCustomTone(isCritical);
+                  },
+                ),
+                if ((isCritical
+                        ? _criticalAlertTonePath
+                        : _alarmRingtonePath) !=
+                    null)
+                  ListTile(
+                    leading: const Icon(Icons.play_arrow),
+                    title: Text(
+                      'Preview selected custom tone',
+                      style: GoogleFonts.spaceGrotesk(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      await _previewTone(isCritical);
+                    },
+                  ),
+                if ((isCritical
+                        ? _criticalAlertTonePath
+                        : _alarmRingtonePath) !=
+                    null)
+                  ListTile(
+                    leading: const Icon(Icons.delete_outline,
+                        color: Colors.redAccent),
+                    title: Text(
+                      'Remove custom tone',
+                      style: GoogleFonts.spaceGrotesk(
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                    onTap: () async {
+                      Navigator.pop(context);
+
+                      if (isCritical) {
+                        setState(() {
+                          _criticalAlertTone = 'Loud Alert';
+                          _criticalAlertTonePath = null;
+                        });
+                        await _savePref(
+                            AppConstants.keyCriticalAlertTone, 'Loud Alert');
+                        await _removePref(
+                            AppConstants.keyCriticalAlertTonePath);
+                      } else {
+                        setState(() {
+                          _alarmRingtone = 'Default Security';
+                          _alarmRingtonePath = null;
+                        });
+                        await _savePref(
+                            AppConstants.keyAlarmRingtone, 'Default Security');
+                        await _removePref(AppConstants.keyAlarmRingtonePath);
+                      }
+                    },
+                  ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
 
     if (selected != null && mounted) {
       setState(() {
-        if (isCritical)
+        if (isCritical) {
           _criticalAlertTone = selected;
-        else
+          _criticalAlertTonePath = null;
+        } else {
           _alarmRingtone = selected;
+          _alarmRingtonePath = null;
+        }
       });
-      _savePref(
+
+      await _savePref(
         isCritical
             ? AppConstants.keyCriticalAlertTone
             : AppConstants.keyAlarmRingtone,
         selected,
       );
+
+      await _removePref(
+        isCritical
+            ? AppConstants.keyCriticalAlertTonePath
+            : AppConstants.keyAlarmRingtonePath,
+      );
     }
+  }
+
+  String _displaySubtitle(String tone, String? path) {
+    if (tone == 'Custom Tone' && path != null && path.isNotEmpty) {
+      return File(path).uri.pathSegments.last;
+    }
+    return tone;
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark
-        ? AppColors.textPrimary
-        : AppColors.lightTextPrimary;
-    final subColor = isDark
-        ? AppColors.textSecondary
-        : AppColors.lightTextSecondary;
+    final textColor =
+        isDark ? AppColors.textPrimary : AppColors.lightTextPrimary;
+    final subColor =
+        isDark ? AppColors.textSecondary : AppColors.lightTextSecondary;
     final cardColor = isDark ? AppColors.bgCard : AppColors.lightCard;
     final bgColor = isDark ? AppColors.bgDark : AppColors.lightBg;
 
@@ -159,15 +361,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
         children: [
-          // ── ALARMS ────────────────────────────────────────────────
-          _sectionHeader(
-            '🔔',
-            'ALARMS',
-            subColor,
-          ).animate().fadeIn(delay: 100.ms),
+          _sectionHeader('🔔', 'ALARMS', subColor)
+              .animate()
+              .fadeIn(delay: 100.ms),
           _settingsTile(
             title: 'Alarm ringtone selection',
-            subtitle: _alarmRingtone,
+            subtitle: _displaySubtitle(_alarmRingtone, _alarmRingtonePath),
             cardColor: cardColor,
             textColor: textColor,
             subColor: subColor,
@@ -176,7 +375,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ).animate().fadeIn(delay: 150.ms),
           _settingsTile(
             title: 'Critical Alert Tone',
-            subtitle: _criticalAlertTone,
+            subtitle:
+                _displaySubtitle(_criticalAlertTone, _criticalAlertTonePath),
             cardColor: cardColor,
             textColor: textColor,
             subColor: subColor,
@@ -184,13 +384,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => _selectRingtone(true),
           ).animate().fadeIn(delay: 200.ms),
           const SizedBox(height: 24),
-
-          // ── NOTIFICATIONS ─────────────────────────────────────────
-          _sectionHeader(
-            '📡',
-            'NOTIFICATIONS',
-            subColor,
-          ).animate().fadeIn(delay: 250.ms),
+          _sectionHeader('📡', 'NOTIFICATIONS', subColor)
+              .animate()
+              .fadeIn(delay: 250.ms),
           _switchTile(
             title: 'Push Alerts',
             subtitle: 'Instant mobile push notifications',
@@ -228,13 +424,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ).animate().fadeIn(delay: 400.ms),
           const SizedBox(height: 24),
-
-          // ── DEVICE INFORMATION ────────────────────────────────────
-          _sectionHeader(
-            '🖥️',
-            'DEVICE INFORMATION',
-            subColor,
-          ).animate().fadeIn(delay: 450.ms),
+          _sectionHeader('🖥️', 'DEVICE INFORMATION', subColor)
+              .animate()
+              .fadeIn(delay: 450.ms),
           _settingsTile(
             title: 'Device ID',
             subtitle: _deviceId,
@@ -247,13 +439,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ).animate().fadeIn(delay: 500.ms),
           const SizedBox(height: 24),
-
-          // ── APPEARANCE ────────────────────────────────────────────
-          _sectionHeader(
-            '🎨',
-            'APPEARANCE',
-            subColor,
-          ).animate().fadeIn(delay: 550.ms),
+          _sectionHeader('🎨', 'APPEARANCE', subColor)
+              .animate()
+              .fadeIn(delay: 550.ms),
           _switchTile(
             title: 'Dark Mode',
             subtitle: 'Switch between light and dark themes',
@@ -264,19 +452,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: Icon(Icons.dark_mode, color: subColor, size: 22),
             onChanged: (v) {
               setState(() => _darkMode = v);
-              // ✅ This actually changes the app theme instantly
               setAppTheme(v);
             },
           ).animate().fadeIn(delay: 600.ms),
-
           const SizedBox(height: 24),
-
-          // ── APP INFO ─────────────────────────────────────────────
-          _sectionHeader(
-            'ℹ️',
-            'APP INFO',
-            subColor,
-          ).animate().fadeIn(delay: 650.ms),
+          _sectionHeader('ℹ️', 'APP INFO', subColor)
+              .animate()
+              .fadeIn(delay: 650.ms),
           _settingsTile(
             title: AppConstants.appName,
             subtitle: 'Version ${AppConstants.appVersion}',
@@ -337,6 +519,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         subtitle: Text(
           subtitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: GoogleFonts.inter(color: subColor, fontSize: 12),
         ),
         trailing: trailing,
@@ -368,6 +552,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         subtitle: Text(
           subtitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: GoogleFonts.inter(color: subColor, fontSize: 12),
         ),
         trailing: Switch(
@@ -431,9 +617,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           label,
           style: GoogleFonts.spaceMono(fontSize: 11, color: subColor),
         ),
-        Text(
-          value,
-          style: GoogleFonts.spaceMono(fontSize: 11, color: textColor),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.spaceMono(fontSize: 11, color: textColor),
+          ),
         ),
       ],
     );

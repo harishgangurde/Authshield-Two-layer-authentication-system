@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "966185730935",
+    "project_id": "authshield-91b56",
+    "storage_bucket": "authshield-91b56.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:966185730935:android:ec506dc1bfb02237a91772",
+        "android_client_info": {
+          "package_name": "com.example.authshield"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4rNPzjHxPOjUnUwpMrmEWuPD7CWQAZJI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
