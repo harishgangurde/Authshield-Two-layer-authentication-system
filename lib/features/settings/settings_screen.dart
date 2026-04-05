@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/services/api_service.dart';
 import '../../../app.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -38,11 +39,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isUpdatingPassword = false;
   String _currentDoorPassword = '••••';
 
+  String _espIp = '';
+  bool _testingConnection = false;
+
   @override
   void initState() {
     super.initState();
     _loadSettings();
     _loadDoorPassword();
+    _loadEspIp();
   }
 
   @override
@@ -73,17 +78,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  Future<void> _loadEspIp() async {
+    await ApiService().loadBaseUrl();
+    if (!mounted) return;
+    setState(() {
+      _espIp = ApiService().baseUrl.replaceAll('http://', '');
+    });
+  }
+
   Future<void> _loadDoorPassword() async {
     try {
       final response = await _supabase
           .from('settings')
-          .select('value')
+          .select('*')
           .eq('key', 'keypad_password')
           .maybeSingle();
 
-      if (response != null && response['value'] != null) {
+      if (response != null) {
+        final password = response['setting_value'] ??
+            response['password'] ??
+            response['data'] ??
+            response['config_value'] ??
+            response['keypad_password'] ??
+            '1234';
+
         setState(() {
-          _currentDoorPassword = response['value'].toString();
+          _currentDoorPassword = password.toString();
         });
       } else {
         setState(() {
@@ -103,7 +123,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       await _supabase.from('settings').update({
-        'value': newPassword,
+        'setting_value': newPassword,
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('key', 'keypad_password');
 
@@ -296,6 +316,102 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _changeEspIpDialog() async {
+    final controller = TextEditingController(text: _espIp);
+
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Theme.of(context).cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(
+          'Change ESP32 IP',
+          style: GoogleFonts.spaceGrotesk(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            hintText: 'e.g. 10.192.87.168',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.spaceGrotesk(),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () async {
+              final newIp = controller.text.trim();
+
+              if (newIp.isEmpty) return;
+
+              final url = "http://$newIp";
+              await ApiService().setBaseUrl(url);
+
+              if (!mounted) return;
+
+              setState(() {
+                _espIp = newIp;
+              });
+
+              Navigator.pop(context);
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    "ESP IP updated successfully",
+                    style: GoogleFonts.spaceGrotesk(),
+                  ),
+                  backgroundColor: AppColors.primary,
+                ),
+              );
+            },
+            child: Text(
+              'Save',
+              style: GoogleFonts.spaceGrotesk(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _testConnection() async {
+    setState(() => _testingConnection = true);
+
+    final success = await ApiService().testConnection();
+
+    if (!mounted) return;
+
+    setState(() => _testingConnection = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success ? "ESP Connected ✅" : "ESP Not reachable ❌",
+          style: GoogleFonts.spaceGrotesk(),
+        ),
+        backgroundColor: success ? Colors.green : Colors.redAccent,
       ),
     );
   }
@@ -680,6 +796,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
               .animate()
               .fadeIn(delay: 450.ms),
           _settingsTile(
+            title: 'ESP32 Device IP',
+            subtitle: _espIp.isEmpty ? 'Not set' : _espIp,
+            cardColor: cardColor,
+            textColor: textColor,
+            subColor: subColor,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _testingConnection
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.wifi),
+                        onPressed: _testConnection,
+                      ),
+                const SizedBox(width: 4),
+                Icon(Icons.edit, color: subColor, size: 18),
+              ],
+            ),
+            onTap: _changeEspIpDialog,
+          ).animate().fadeIn(delay: 470.ms),
+          _settingsTile(
             title: 'Device ID',
             subtitle: _deviceId,
             cardColor: cardColor,
@@ -843,6 +984,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _infoRow(
               'App Version',
               AppConstants.appVersion,
+              textColor,
+              subColor,
+            ),
+            const SizedBox(height: 8),
+            _infoRow(
+              'ESP IP',
+              _espIp.isEmpty ? 'Not set' : _espIp,
               textColor,
               subColor,
             ),

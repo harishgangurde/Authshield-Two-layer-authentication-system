@@ -1,5 +1,3 @@
-// lib/main.dart
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -7,10 +5,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/services/supabase_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/api_service.dart';
 import 'firebase_options.dart';
 import 'app.dart';
 
+@pragma('vm:entry-point')
 Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -37,6 +39,8 @@ void main() async {
   );
   print("🔥 Firebase initialized successfully");
 
+  FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
+
   await loadSavedTheme();
 
   await SystemChrome.setPreferredOrientations([
@@ -58,11 +62,12 @@ void main() async {
     anonKey: dotenv.get('SUPABASE_ANON_KEY'),
   );
 
+  // ✅ Load saved ESP32 IP / Base URL
+  await ApiService().loadBaseUrl();
+
   final notificationService = NotificationService();
   await notificationService.initialize();
   await notificationService.requestPermissionsOnce();
-
-  FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
 
   runApp(const SentinelApp());
 }

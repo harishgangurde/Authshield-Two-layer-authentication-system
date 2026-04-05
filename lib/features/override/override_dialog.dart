@@ -21,22 +21,55 @@ class _OverrideDialogState extends State<OverrideDialog> {
   String get _timestamp => DateFormat('HH:mm:ss').format(DateTime.now());
 
   Future<void> _confirmUnlock() async {
+    if (_loading) return;
+
     setState(() => _loading = true);
+
     try {
       final unlocked = await ApiService().unlockDoor();
-      await SupabaseService().logManualUnlock(AppConstants.defaultDeviceId);
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _success = unlocked;
-        });
-        if (unlocked) {
-          await Future.delayed(const Duration(milliseconds: 1500));
-          if (mounted) Navigator.of(context).pop(true);
-        }
+
+      if (unlocked) {
+        await SupabaseService().logManualUnlock(AppConstants.defaultDeviceId);
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+        _success = unlocked;
+      });
+
+      if (unlocked) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Door unlocked successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        await Future.delayed(const Duration(milliseconds: 1500));
+        if (mounted) Navigator.of(context).pop(true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unlock failed. Device may be offline.'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (e) {
-      if (mounted) setState(() => _loading = false);
+      if (!mounted) return;
+
+      setState(() => _loading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unlock error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+
+      print("❌ Manual unlock failed: $e");
     }
   }
 
@@ -160,7 +193,7 @@ class _OverrideDialogState extends State<OverrideDialog> {
           ),
           const SizedBox(height: 12),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: _loading ? null : () => Navigator.of(context).pop(false),
             child: Text(
               'CANCEL',
               style: GoogleFonts.spaceMono(

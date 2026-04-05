@@ -22,7 +22,7 @@ class AppConstants {
   // ================= ESP32 API =================
   // ⚠️ IMPORTANT:
   // Replace this if your ESP32 IP changes
-  static const String esp32BaseUrl = 'http://10.96.69.168';
+  static const String esp32BaseUrl = 'http://10.192.87.168';
 
   static const String unlockEndpoint = '/unlock';
   static const String statusEndpoint = '/status';
