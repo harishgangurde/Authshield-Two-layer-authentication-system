@@ -116,4 +116,33 @@ class ApiService {
     await Future.delayed(const Duration(seconds: 2));
     return capturedImageBase64.isNotEmpty;
   }
+
+  // ─── UPDATE PASSWORD (🔥 ADD THIS) ─────────────────────────
+  Future<bool> updatePassword(String newPassword) async {
+    try {
+      final url = Uri.parse('${AppConstants.backendBaseUrl}/device-password');
+      print("🔐 Updating password at: $url");
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "password": newPassword,
+        }),
+      );
+
+      print("📡 Password update code: ${response.statusCode}");
+      print("📩 Password update body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data["success"] == true;
+      }
+
+      return false;
+    } catch (e) {
+      print("❌ Password update error: $e");
+      return false;
+    }
+  }
 }

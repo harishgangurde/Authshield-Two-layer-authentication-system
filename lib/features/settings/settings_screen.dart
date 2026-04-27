@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -95,7 +94,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           .maybeSingle();
 
       if (response != null) {
-        final password = response['setting_value'] ??
+        final password = response['value'] ??
             response['password'] ??
             response['data'] ??
             response['config_value'] ??
@@ -123,7 +122,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       await _supabase.from('settings').update({
-        'setting_value': newPassword,
+        'value': newPassword,
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('key', 'keypad_password');
 

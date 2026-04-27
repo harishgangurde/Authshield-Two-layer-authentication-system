@@ -1,8 +1,8 @@
 class AppConstants {
   // ================= APP INFO =================
   static const String appName = 'AuthShield';
-  static const String appVersion = 'v4.0.2';
-  static const String appTagline = 'Smart 2FA • Secure Access';
+  static const String appVersion = 'v1.0';
+  static const String appTagline = 'Smart 2LA • Secure Access';
 
   // ================= DEVICE =================
   static const String defaultDeviceId = 'AuthShield-X-9000';
@@ -22,7 +22,8 @@ class AppConstants {
   // ================= ESP32 API =================
   // ⚠️ IMPORTANT:
   // Replace this if your ESP32 IP changes
-  static const String esp32BaseUrl = 'http://10.192.87.168';
+  static const String esp32BaseUrl = 'http://10.176.52.180';
+  static const backendBaseUrl = "http://10.176.52.180:8000";
 
   static const String unlockEndpoint = '/unlock';
   static const String statusEndpoint = '/status';

@@ -84,7 +84,7 @@ class _SplashScreenState extends State<SplashScreen>
 
               // ── Title ─────────────────────────────────────────────────
               Text(
-                'Smart 2FA',
+                'Smart 2LA',
                 style: GoogleFonts.spaceMono(
                   fontSize: 42,
                   fontWeight: FontWeight.bold,
@@ -227,19 +227,19 @@ class _SplashScreenState extends State<SplashScreen>
 
           // Main shield card
           Container(
-                width: 110,
-                height: 110,
-                decoration: BoxDecoration(
-                  color: AppColors.bgCard.withOpacity(0.8),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                ),
-                child: const Icon(
-                  Icons.shield,
-                  color: AppColors.primary,
-                  size: 56,
-                ),
-              )
+            width: 110,
+            height: 110,
+            decoration: BoxDecoration(
+              color: AppColors.bgCard.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+            ),
+            child: const Icon(
+              Icons.shield,
+              color: AppColors.primary,
+              size: 56,
+            ),
+          )
               .animate()
               .fadeIn(delay: 200.ms)
               .scale(begin: const Offset(0.5, 0.5)),
